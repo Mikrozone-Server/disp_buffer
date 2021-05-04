@@ -1,0 +1,139 @@
+#!/bin/bash
+
+#include font
+. fonts/font6x8.inc
+
+# LCD size in px (128x64)
+LCD_WIDTH=128
+LCD_HEIGHT=64
+LCD_ROWS_HEIGHT=8
+LCD_ROWS_CNT=$((LCD_HEIGHT/LCD_ROWS_HEIGHT))
+
+# OLED buffer
+declare -A OLED_BUFFER
+
+# function to print help
+print_help() {
+  echo "Usage: $(basename $0) \"Xpos\" \"Ypos\" \"text\" \"filename\""
+  echo " \"Xpos\"      ... X-position for written text"
+  echo " \"Ypos\"      ... Y-position for written text"
+  echo " \"text\"      ... text to be written"
+  echo " \"filename\"  ... file to be generated"
+  exit $1
+}
+
+# function to init oled buffer wth '0x00' value
+init_buffer() {
+  for ((row=0;row<LCD_ROWS_CNT;row++)); do
+    for ((col=0;col<LCD_WIDTH;col++)); do
+      OLED_BUFFER[$row,$col]=0
+    done
+  done
+}
+
+# function to fill oled buffer with input value
+OLED_fill() {
+  local col=$1
+  local colnum=$2
+  local row=$3
+  local rownum=$4
+  local value=$5
+
+  while [ $((rownum--)) -ge 0 ]; do
+    cc=$colnum
+    while [ $((cc--)) -ge 0 ]; do
+      OLED_BUFFER[$row,$((col++))]=$value
+    done
+    col=$((col - column))
+    ((row++))
+  done
+}
+
+# function to write data into oled buffer
+OLED_write() {
+  local col=$1
+  local colnum=$2
+  local row=$3
+  local -n p_buf="$4"
+  local p_idx=$5
+  local num=$6
+
+  local count=0
+
+  while [ $num -gt 0 ]; do
+    cc=$colnum
+    while [ $num -gt 0 ] && [ $cc -ge 0 ]; do
+      OLED_BUFFER[$row,$((col++))]=${p_buf[$((idx + count))]}
+      ((count++))
+      ((num--))
+      ((cc--))
+    done
+    col=$((col - colnum))
+    ((row++))
+  done
+}
+
+# function to print text into oled buffer
+OLED_print() {
+  local col=$1; [ $col -ge $LCD_WIDTH ] && col=$((col % LCD_WIDTH))
+  local row=$2; [ $row -ge $LCD_ROWS_CNT ] && row=$((row % LCD_ROWS_CNT))
+  local str=$3
+  local len=$4; [ $len -eq 0 ] && len=$LCD_WIDTH
+  local p_font="$5"
+  local start_char=$6
+  local width=$7
+  local height=$8
+  local blank=$9
+
+  local count=0
+  local cb=$((width * height))
+
+  while [ $((len--)) -gt 0 ]; do
+    ord=$(echo -n "${str:count:1}" | od -An -tuC)
+    [ ord = 0 ] && return
+    idx=$((ord - start_char))
+    idx=$((idx * cb))
+    OLED_write $col $width $row "$p_font" $idx $cb
+    col=$((col + width))
+    OLED_fill $col $blank $row $height 0
+    col=$((col + blank))
+    ((count++))
+  done
+}
+
+# function to write oled buffer into file
+OLED_dump_to_file() {
+  echo -n "Writing OLED data..."
+  echo -n "" > "$1"
+  for ((row=0;row<LCD_ROWS_CNT;row++)); do
+    for ((col=0;col<LCD_WIDTH;col++)); do
+      printf "0x%02X" ${OLED_BUFFER[$row,$col]} | xxd -r -p >> "$1"
+    done
+  done
+  echo "done"
+}
+
+# check arguments
+[ $# -ne 4 ] && print_help 0
+
+# check if input arguments are number
+if ! [[ $1 =~ ^[0-9]+$ ]] || ! [[ $2 =~ ^[0-9]+$ ]]; then
+  echo "ERR: input coordinates have to be numbers"
+  exit 1
+fi
+
+# check output filename
+filename="$4"
+if ! [ -w `dirname "$filename"` ]; then
+  echo "ERR: output directory $(dirname "$filename") is not writable"
+  exit 2
+fi
+
+# init OLED buffer
+init_buffer
+
+# print text on 0:0 with font 6x8
+OLED_print6x8 $1 $2 "$3"
+
+# wirte oled output into file
+OLED_dump_to_file "$filename"
