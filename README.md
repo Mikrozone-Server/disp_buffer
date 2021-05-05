@@ -9,12 +9,12 @@ Display parameters are defined inside the script:
 
 ## Usage
 
-`print-to-buffer Xpos Ypos "text" [ "filename"]`
+`print-to-buffer Xpos Ypos "text" "filename"`
 
 ### Options
-- Xpos Ypos      ... X and Y position for start printing
-- "text"         ... text to be written
-- [ "filename" ] ... output binary file as video RAM buffer  
+- Xpos Ypos   ... X and Y position for start printing
+- "text"      ... text to be written
+- "filename"  ... output binary file as video RAM buffer  
     
 ## Example
 `print-to-buffer 0 10 "Hello world!" outbuffer.bin`
