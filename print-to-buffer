@@ -44,7 +44,7 @@ OLED_fill() {
     while [ $((cc--)) -ge 0 ]; do
       OLED_BUFFER[$row,$((col++))]=$value
     done
-    col=$((col - column))
+    col=$((col - colnum))
     ((row++))
   done
 }
@@ -63,7 +63,7 @@ OLED_write() {
   while [ $num -gt 0 ]; do
     cc=$colnum
     while [ $num -gt 0 ] && [ $cc -ge 0 ]; do
-      OLED_BUFFER[$row,$((col++))]=${p_buf[$((idx + count))]}
+      OLED_BUFFER[$row,$((col++))]=${p_buf[$((p_idx + count))]}
       ((count++))
       ((num--))
       ((cc--))
@@ -89,8 +89,8 @@ OLED_print() {
   local cb=$((width * height))
 
   while [ $((len--)) -gt 0 ]; do
-    ord=$(echo -n "${str:count:1}" | od -An -tuC)
-    [ ord = 0 ] && return
+    ord=$((`echo -n "${str:count:1}" | od -An -tuC`))
+    [ $ord -eq 0 ] && return
     idx=$((ord - start_char))
     idx=$((idx * cb))
     OLED_write $col $width $row "$p_font" $idx $cb
@@ -124,7 +124,7 @@ fi
 
 # check output filename
 filename="$4"
-if ! [ -w `dirname "$filename"` ]; then
+if ! [ -w "`dirname "$filename"`" ]; then
   echo "ERR: output directory $(dirname "$filename") is not writable"
   exit 2
 fi
